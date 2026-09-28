@@ -286,8 +286,15 @@
   .confirm{
     text-align:center; padding:10px 4px 4px;
   }
+  .confirm-title{
+    font-family:'Cinzel',Georgia,serif; font-weight:700; font-size:22px;
+    color:var(--brass-bright); letter-spacing:0.04em; margin-bottom:6px;
+  }
+  .confirm-sub{font-size:14px; color:var(--cream); margin-bottom:16px; line-height:1.5;}
+  #confirmCard{border-color:var(--brass); animation:pop .35s ease;}
+  @keyframes pop{from{opacity:0; transform:scale(0.97);} to{opacity:1; transform:scale(1);}}
   .confirm .check{
-    width:52px; height:52px; border-radius:50%; background:var(--green);
+    width:60px; height:60px; border-radius:50%; background:var(--green);
     display:flex; align-items:center; justify-content:center; margin:0 auto 12px;
     font-size:26px; color:#0e1a0d;
   }
@@ -545,9 +552,10 @@
     </div>
 
     <div class="card" id="confirmCard" style="display:none;">
-      <h2>¡Cita registrada!</h2>
       <div class="confirm">
         <div class="check">✓</div>
+        <div class="confirm-title">¡Tu cita está confirmada!</div>
+        <div class="confirm-sub">Tu turno ya quedó apartado a tu nombre. Te esperamos.</div>
         <div class="row"><span>Barbería</span><span>JHON BARBER</span></div>
         <div class="row"><span>Cliente</span><span id="cNombre"></span></div>
         <div class="row"><span>Celular</span><span id="cCelular"></span></div>
@@ -966,6 +974,8 @@ function updateClientGate(){
   }else{
     gate.style.display = "block";
     reserva.classList.add("locked");
+    citaConfirmada = false;
+    reserva.style.display = "";
     fechaInput.disabled = true;
     confirmCard.style.display = "none";
   }
@@ -1106,7 +1116,7 @@ function detenerEscuchaFirestore(){
 
 function onDatosActualizados(){
   renderDiasScroll();
-  if(fechaInput && fechaInput.value){
+  if(fechaInput && fechaInput.value && !citaConfirmada){
     renderClientDay();
   }
   if(esBarbero()){
@@ -1260,8 +1270,11 @@ nombreInput.addEventListener("input", updateButtonState);
 celularInput.addEventListener("input", updateButtonState);
 
 let selectedSlot = null;
+let citaConfirmada = false; // mientras sea true, se muestra solo la confirmación
 
 function resetClientView(){
+  citaConfirmada = false;
+  document.getElementById("reservaCard").style.display = "";
   fechaInput.value = "";
   selectedDateStr = null;
   if(!currentUser){
@@ -1504,10 +1517,18 @@ btnReservar.addEventListener("click", () => {
       document.getElementById("cFecha").textContent = prettyDate(cita.date);
       document.getElementById("cHora").textContent = cita.time;
 
+      citaConfirmada = true;
       formWrap.style.display = "none";
       slotsWrap.style.display = "none";
       diaInfo.style.display = "none";
+      fechaInput.value = "";
+      selectedDateStr = null;
+      selectedSlot = null;
+      document.getElementById("reservaCard").style.display = "none";
       confirmCard.style.display = "block";
+      // Mostrar el botón de Telegram de inmediato (con lo que ya sabemos del
+      // login) y luego confirmar con Apps Script, que a veces tarda.
+      refreshTelegramUI();
       verificarTelegramVinculado().then(() => refreshTelegramUI());
       confirmCard.scrollIntoView({behavior:"smooth", block:"start"});
 
