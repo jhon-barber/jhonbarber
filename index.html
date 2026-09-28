@@ -228,6 +228,9 @@
   .day-card .dow{font-size:10.5px; text-transform:uppercase; color:var(--cream-dim); font-weight:700; letter-spacing:0.03em;}
   .day-card .num{font-family:'Cinzel'; font-weight:600; font-size:18px; color:var(--cream); line-height:1.05; margin-top:2px;}
   .day-card .estado{font-size:9.5px; color:var(--brass); margin-top:4px; font-weight:700; white-space:nowrap;}
+  .day-card.con-citas{border-color:var(--brass);}
+  .day-card.con-citas .estado{color:var(--brass-bright);}
+  .day-card.sin-citas .estado{color:var(--cream-dim); font-weight:600;}
   .day-card.selected{background:var(--brass); border-color:var(--brass);}
   .day-card.selected .dow, .day-card.selected .num, .day-card.selected .estado{color:#181410;}
   .day-card.closed, .day-card.nocupos{opacity:0.42; cursor:not-allowed; border-style:dashed;}
@@ -637,9 +640,10 @@
 
       <div class="card">
         <h2>Resumen de citas <span class="tag">Barbero</span></h2>
-        <label for="filtroFechaCitas">Ver las citas de este día</label>
-        <input type="date" id="filtroFechaCitas">
-        <button class="secondary" id="btnVerTodasCitas" style="margin-bottom:10px;">Ver todas (sin filtro)</button>
+        <label>Elige el día</label>
+        <div id="diasCitasBarbero" class="dias-scroll"></div>
+        <input type="date" id="filtroFechaCitas" style="display:none;">
+        <button class="secondary" id="btnVerTodasCitas" style="margin:4px 0 10px;">Ver todas las citas pendientes</button>
         <div id="listaCitas"></div>
       </div>
 
@@ -1606,6 +1610,7 @@ function refreshBarberPanel(){
   if(!esBarbero()) return;
   checkForNewCitas();
   renderStats();
+  renderDiasBarbero();
   renderListaCitas();
   renderBloqueos();
   renderMartes();
@@ -1711,12 +1716,46 @@ const filtroFechaCitas = document.getElementById("filtroFechaCitas");
 filtroFechaCitas.min = todayStr();
 filtroFechaCitas.value = todayStr();
 
-filtroFechaCitas.addEventListener("change", () => {
-  renderListaCitas();
-});
+/* ---- Franja de 30 días del barbero: cuántas citas tiene cada día ----
+   Se actualiza sola cada vez que Firestore avisa un cambio (cita nueva,
+   cancelada o marcada como realizada). */
+function renderDiasBarbero(){
+  const wrap = document.getElementById("diasCitasBarbero");
+  if(!wrap) return;
+  wrap.innerHTML = "";
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  for(let i = 0; i < 30; i++){
+    const d = new Date(hoy);
+    d.setDate(d.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const cant = CITAS.filter(a => a.date === dateStr && getStatus(a) !== "realizada").length;
+    const cerrado = estadoDia(dateStr).cerrado;
+
+    const card = document.createElement("div");
+    card.className = "day-card";
+    if(dateStr === filtroFechaCitas.value) card.classList.add("selected");
+    if(cant > 0) card.classList.add("con-citas");
+    else if(cerrado) card.classList.add("closed");
+    else card.classList.add("sin-citas");
+
+    const dow = i === 0 ? "Hoy" : DIAS_ABREV[d.getDay()];
+    const numLabel = d.getDate() === 1 ? `${d.getDate()} ${MESES_ABREV[d.getMonth()]}` : String(d.getDate());
+    const estadoLabel = cant > 0 ? (cant === 1 ? "1 cita" : `${cant} citas`) : (cerrado ? "cerrado" : "sin citas");
+    card.innerHTML = `<div class="dow">${dow}</div><div class="num">${numLabel}</div><div class="estado">${estadoLabel}</div>`;
+
+    card.addEventListener("click", () => {
+      filtroFechaCitas.value = dateStr;
+      renderDiasBarbero();
+      renderListaCitas();
+    });
+    wrap.appendChild(card);
+  }
+}
 
 document.getElementById("btnVerTodasCitas").addEventListener("click", () => {
   filtroFechaCitas.value = "";
+  renderDiasBarbero();
   renderListaCitas();
 });
 
